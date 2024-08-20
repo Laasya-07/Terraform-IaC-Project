@@ -1,0 +1,91 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- None
+
+pool:
+  vmImage: windows-latest
+
+steps:
+- task: replacetokens@6
+  displayName: CosmosPredefVariable
+  inputs:
+    root: '$(System.DefaultWorkingDirectory)/modules/Cosmos_Container_lower/'
+    sources: 'main.cont.tf'
+    tokenPattern: 'azpipelines'
+
+- task: CopyFiles@2
+  inputs:
+    Contents: |
+      **/*.tf
+      terraform.tfvars
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: UniversalPackages@0
+  displayName: download task
+  inputs:
+    feedListDownload: c3d2c340-8fa8-432a-91eb-7e53fe47a74b/7d19c545-0c4d-4c97-b1e0-d8f631f3a11a
+    packageListDownload: 1019f457-4863-49ba-b0a7-957339824db6
+    versionListDownload: '*'
+    downloadDirectory: '$(System.DefaultWorkingDirectory)/modules/Cosmos_Container_higher/'
+    feedListPublish: c3d2c340-8fa8-432a-91eb-7e53fe47a74b/7d19c545-0c4d-4c97-b1e0-d8f631f3a11a
+    packageListPublish: my-first-package
+    versionPublish: 0.0.2
+
+- task: TerraformInstaller@0
+  inputs:
+   terraformVersion: latest
+
+
+    
+- task: TerraformTaskV4@4
+  displayName: TerraformInit
+  inputs:
+    provider: 'azurerm'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/environments/dev'
+    command: 'init'
+    commandOptions: '-lock=false -upgrade'
+    backendServiceArm: 'terraform-test-laasya'
+    backendAzureRmResourceGroupName: 'terraform-rg'
+    backendAzureRmStorageAccountName: 'tfstrgac'
+    backendAzureRmContainerName: 'testing'
+    backendAzureRmKey: 'terraform.tfstate'
+
+- task: TerraformTaskV4@4
+  displayName: 'TerraformFmt'
+  inputs:
+    provider: 'azurerm'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/environments/dev'
+    command: 'custom'
+    customCommand: 'fmt'
+    outputTo: 'console'
+    environmentServiceNameAzureRM: 'terraform-test-laasya'
+- task: TerraformTaskV4@4
+  displayName: TerraformValidate
+  inputs:
+    provider: azurerm
+    command: 'validate'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/environments/dev'
+    backendServiceArm: 'terraform-test-laasya'
+    
+- task: TerraformTaskV4@4
+  displayName: TerraformPlan
+  inputs:
+    provider: 'azurerm'
+    command: 'plan'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/environments/dev'
+    commandOptions: ''
+    environmentServiceNameAzureRM: 'terraform-test-laasya'
+        
+- task: TerraformTaskV4@4
+  displayName: TerraformApply
+  inputs:
+    provider: azurerm
+    command: 'apply'
+    commandOptions: ''
+    workingDirectory: '$(System.DefaultWorkingDirectory)/environments/dev'
+    environmentServiceNameAzureRM: 'terraform-test-laasya'
+    backendServiceArm: 'terraform-test-laasya'
